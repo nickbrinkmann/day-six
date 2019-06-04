@@ -1,20 +1,17 @@
+//This is the same as importing express in ionic. Express comes from the node modules.
 const express = require("express");
 
-//Initialises express
+//Creates an instance of express
 const app = express();
 
-let properties = new Array();
-// This makes the properties variable usable between functions/requests to the server. As opposed to the commented out section below
 
-//Body Parser Middleware
+//This tells Express that we want to use JSON in our HTTP requests and responses.
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 //Requires the users index
 const usersRouter = require("./users/index");
 app.use("/api/users", usersRouter);
-
-
 
 //Requires the properties index
 const propertiesRouter = require("./properties/index");
@@ -23,9 +20,8 @@ app.use("/api/properties", propertiesRouter);
 //Dummy return, as far as I can see
 app.get("/", (req, res) => {
     console.log(req.headers);
-    res.send("<p>Hello</p>");
+    res.send("GET default page");
 });
-
 
 //Listen on port 3000
 const PORT = 3000;
