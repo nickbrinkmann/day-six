@@ -10,12 +10,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 //Requires the users index
-const usersRouter = require("./users/index");
+const usersRouter = require("./users/users");
 app.use("/api/users", usersRouter);
 
 //Requires the properties index
-const propertiesRouter = require("./properties/index");
+const propertiesRouter = require("./properties/properties");
 app.use("/api/properties", propertiesRouter);
+
 
 //Dummy return, as far as I can see
 app.get("/", (req, res) => {
