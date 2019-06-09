@@ -1,36 +1,51 @@
 const express = require("express");
 const router = express.Router();
 
-var fs = require("fs");
+//Requires the database index
+var connection = require("../db.js");
 
-//Creates a new property listing
-router.post("/", (req, res) => {
+// Imports instance of property model
+let myPropertymodel = require("../models/property-model");
+
+//Imports instance of bookings request model
+let myBookingmodel = require("../models/booking-model");
+
+//************************************PROPERTY ENDPOINTS******************************************//
+
+//Registers a new property. This works
+router.post("/register", (req, res) => {
     const property = req.body;
 
     //The code that follows checks if all necessary information was included in the http request.
-    const bodyName = property.name;
-    const bodyLocation = property.location;
-    const bodyImageUrl = property.imgName;
-    const bodyPrice = property.price;
+    const bodyname = property.name;
+    const bodylocation = property.location;
+    const bodyimgname = property.imgname;
+    const bodyprice = property.price;
+    const bodyownerid = property.ownerid;
 
     var errors = [];
-    if (!bodyName) {
-        errors.push({ message: "Invalid name" });
+    if (!bodyname) {
+        errors.push({ message: "Invalid property name" });
         // return res.status(400).json({message: "Invalid firstname"});
     }
 
-    if (!bodyLocation) {
+    if (!bodylocation) {
         errors.push({ message: "Invalid location" });
         // return res.status(400).json({message: "Invalid lastname"});
     }
 
-    if (!bodyImageUrl) {
-        errors.push({ message: "Invalid image url" });
+    if (!bodyimgname) {
+        errors.push({ message: "Invalid image URL" });
         // return res.status(400).json({message: "Invalid email"});
     }
 
-    if (!bodyPrice) {
+    if (!bodyprice) {
         errors.push({ message: "Invalid price" });
+        // return res.status(400).json({message: "Invalid password"});
+    }
+
+    if (!bodyownerid) {
+        errors.push({ message: "Invalid owner id" });
         // return res.status(400).json({message: "Invalid password"});
     }
 
@@ -38,54 +53,44 @@ router.post("/", (req, res) => {
         return res.status(400).json({ errorMessages: errors });
     }
 
-    //Checks property against existing property database, and if no errors, adds property to the database.
-    fs.readFile("./data/propertydata.json", function (err, data) {
+    //Creates property!!!
+    myPropertymodel.createProperty(property, (err, result) => {
         if (err) {
-            throw err;
-        } else {
-            let newID = 0;
+            console.log(err);
 
-            //Checks property against database. This doesn't really have any functionality besides getting the ID# right
-            if (data.length > 0) {
-                var parseData = JSON.parse(data);
-                parseData.properties.forEach(existingProperty => {
-                    //  if (existingProperty.email == user.email) {
-                    //      return res.json({ message: "Email exists already!" });
-                    //  } else {
-                    //      newID++;
-                    //  }
-                    newID++;
-                });
+            if (err.code === 'ER_DUP_ENTRY') {
+                //Status code 400 means client error (bad request)
+                return res.status(400).json({ message: err.sqlMessage });
+            } else {
+                //Status code 500 means internal server error (client can't do anything).
+                return res.status(500).json({ message: "Failed to insert. Please try again" });
             }
-
-            //Initializes user to database
-            const newProperty = {
-                id: (newID + 1).toString(),
-                // id: (properties.length + 1),
-                name: property.name,
-                location: property.location,
-                imgName: property.imgName,
-                price: property.price,
-                // cellphone: user.cellPhone,
-                // role: user.role
-            };
-            parseData.properties.push(newProperty);
-            res.json(newProperty);
-            fs.writeFile("./data/propertydata.json", JSON.stringify(parseData), function (err) {
-                if (err) {
-                    throw err;
-                }
-                console.log("Property listed successfully");
-                return parseData.properties;
-            });
         }
+
+        //Now this works.
+        console.log(result.insertId);
+
+        //Creates an anonymous property object to return to the client
+        var responseProperty = {
+            //insertId is provided by the database when it returns result
+            id: result.insertId,
+            name: property.name,
+            location: property.location,
+            imgname: property.imgname,
+            price: property.price,
+            ownerid: property.ownerid
+        };
+
+
+        //Returns the newly created user to the client
+        return res.status(200).json(responseProperty);
     });
 });
 
-//Finds a property by ID
+//Finds a property by ID. This works
 router.get("/:id", (req, res) => {
     const propertyId = req.params.id;
-    var property;
+    console.log(propertyId);
 
     //Checks that the query parameter is an integer
     const numberPropertyId = parseInt(propertyId);
@@ -99,187 +104,157 @@ router.get("/:id", (req, res) => {
 
     console.log(propertyId);
 
-    //Checks ID against existing property database, and returns the property.
-    fs.readFile("./data/propertydata.json", function (err, data) {
+    //Searches for property
+    myPropertymodel.getPropertyById(propertyId, (err, result) => {
         if (err) {
-            throw err;
-        } else {
-
-            //Checks ID against database
-            if (data.length > 0) {
-                var parseData = JSON.parse(data);
-                let foundProperty = null;
-                parseData.properties.forEach(existingProperty => {
-                    if (existingProperty.id == propertyId) {
-                        foundProperty = true;
-                        property = existingProperty;
-                    }
-                });
-
-                // //Returns the user if found, otherwise returns error.
-                if (foundProperty) {
-                    return res.json({ property });
-                } else {
-                    return res.status(400).json({ message: "There is no property with this ID" });
-                }
-
-            }
+            return res.status(500).json({ message: "Failed to select" });
         }
+        if (result.length === 0) {
+            return res.status(404).json({ messaage: "No property found for ID" });
+        }
+
+        const propertyResponse = {
+            id: result[0].id,
+            name: result[0].name,
+            location: result[0].location,
+            imgname: result[0].imgname,
+            price: result[0].price,
+            ownerid: result[0].ownerid
+        };
+
+        console.log(propertyResponse);
+
+        //Returns the property to the client
+        return res.status(200).json(propertyResponse);
     });
 });
 
-//Deletes a property by its ID
-router.delete("/:id", (req, res) => {
-    fs.readFile("./data/propertydata.json", function (err, data) {
+//Returns ALL properties (in an ARRAY) owned BY A CERTAIN OWNER, by ownerid. This works
+router.get("/owner/:id", (req, res) => {
+    const ownerId = req.params.id;
+
+    //Checks that the query parameter is an integer
+    const numberOwnerId = parseInt(ownerId);
+    if (isNaN(numberOwnerId)) {
+        return res.status(400).json({ message: "I am expecting an integer" });
+    }
+
+    if (!ownerId) {
+        return res.status(400).json({ message: "Please pass in an ownerId" });
+    }
+
+    console.log(ownerId);
+
+    connection.query("SELECT * FROM property WHERE ownerid = ? ", [ownerId], function (
+        err,
+        result
+    ) {
         if (err) {
-            throw err;
-        } else {
-            if (data.length > 0) {
-                var parseData = JSON.parse(data);
-
-                // Checks if id parameter is given/indicated and is a number.
-                if (!req.params.id || isNaN(req.params.id)) {
-                    return res.status(400).json({ message: "Please pass in a valid userID" });
-                }
-
-                // Filters out element with param.id from users.
-                const len = parseData.properties.length;
-                parseData.properties = parseData.properties.filter(property => !(property.id === req.params.id));
-
-                // Checks if user existed by checking if number of users changed.
-                if (len == parseData.properties.length) {
-                    return res.status(400).json({ message: "Property with given ID not found" });
-                }
-
-                fs.writeFile("./data/propertydata.json", JSON.stringify(parseData), function (err) {
-                    if (err) {
-                        throw err;
-                    }
-                    res.status(200).json({ status: "Property deleted" });
-                    console.log("Property deleted");
-                });
-            } else {
-                throw new Error("No properties exist");
-            }
+            console.log("error: ", err);
+            return res.status(500).json({ message: "Failed to select" });
         }
+        if (result.length === 0) {
+            return res.status(404).json({ messaage: "No properties found for this owner" });
+        }
+
+        //This returns an ARRAY. MAKE SURE YOUR PROVIDER APP AND CONSUMER APPS KNOW HOW TO DEAL WITH THESE ARRAYS WHEN
+        //RENDERING THE CURRENT LISTINGS PAGE (PROVIDER)
+        return res.status(200).json(result);
     });
 });
 
-//Creates a new booking request given the property id
+//Returns ALL properties. This works
+router.get("/", (req, res) => {
+    connection.query("SELECT * FROM property", function (
+        err,
+        result
+    ) {
+        if (err) {
+            console.log("error: ", err);
+            return res.status(500).json({ message: "Failed to select" });
+        }
+        if (result.length === 0) {
+            return res.status(404).json({ messaage: "No properties found" });
+        }
+
+        //This returns an ARRAY. MAKE SURE YOUR PROVIDER APP AND CONSUMER APPS KNOW HOW TO DEAL WITH THESE ARRAYS WHEN
+        //RENDERING THE CURRENT LISTINGS PAGE (PROVIDER)
+        return res.status(200).json(result);
+    });
+});
+
+//************************************BOOKING REQUEST ENDPOINTS******************************************//
+
+//Registers a new booking request.
 router.post("/:id/bookings", (req, res) => {
-    const booking = req.body;
-
+    var booking = {
+        datefrom: req.body.datefrom,
+        dateto: req.body.dateto,
+        userid: req.body.userid,
+        propertyid: req.params.id,
+        status: "NEW"
+    };
+    
     //The code that follows checks if all necessary information was included in the http request.
-    const bodyDateFrom = booking.dateFrom;
-    const bodyDateTo = booking.dateTo;
-    const bodyUserId = booking.userId;
+    const bodydatefrom = booking.datefrom;
+    const bodydateto = booking.dateto;
+    const bodyuserid = booking.userid;
+    const bodypropertyid = req.params.id;
+
 
     var errors = [];
-    if (!bodyDateFrom) {
-        errors.push({ message: "Invalid date from" });
-        // return res.status(400).json({message: "Invalid firstname"});
+    if (!bodydatefrom) {
+        errors.push({ message: "Invalid booking date from" });
     }
 
-    if (!bodyDateTo) {
-        errors.push({ message: "Invalid date to" });
-        // return res.status(400).json({message: "Invalid lastname"});
+    if (!bodydateto) {
+        errors.push({ message: "Invalid booking date to" });
     }
 
-    if (!bodyUserId) {
-        errors.push({ message: "Invalid user id" });
-        // return res.status(400).json({message: "Invalid email"});
+    if (!bodyuserid) {
+        errors.push({ message: "Please pass in a user ID" });
+    }
+
+    if (!bodypropertyid) {
+        errors.push({ message: "Please pass in a property ID" });
     }
 
     if (errors.length > 0) {
         return res.status(400).json({ errorMessages: errors });
     }
 
-    //Checks booking request against existing user database, and if no errors, adds user to the database.
-    fs.readFile("./data/bookingdata.json", function (err, data) {
+    //Creates booking request!!!
+    myBookingmodel.createBooking(booking, (err, result) => {
         if (err) {
-            throw err;
-        } else {
-            let newID = 0;
+            console.log(err);
 
-            //Increments the ID number by 1 for each booking already made.
-            if (data.length > 0) {
-                var parseData = JSON.parse(data);
-                parseData.bookings.forEach(existingBooking => {
-                    newID++;
-                });
-            }
-            //Initializes booking to database
-            const newBooking = {
-                id: (newID + 1).toString(),
-                dateFrom: bodyDateFrom,
-                dateTo: bodyDateTo,
-                userId: bodyUserId,
-                propertyId: req.params.id,
-                status: "NEW"
-            };
-            parseData.bookings.push(newBooking);
-            res.json(newBooking);
-            fs.writeFile("./data/bookingdata.json", JSON.stringify(parseData), function (err) {
-                if (err) {
-                    throw err;
-                }
-                console.log("Booking request successful");
-                return parseData.bookings;
-            });
-        }
-    });
-});
-
-//Finds all booking requests under a property Id
-router.get("/:id/bookings", (req, res) => {
-    const propertyId = req.params.id;
-    var allbookings = [];
-
-    //Checks that the query parameter is an integer
-    const numberPropertyId = parseInt(propertyId);
-    if (isNaN(numberPropertyId)) {
-        return res.status(400).json({ message: "I am expecting an integer" });
-    }
-
-    if (!propertyId) {
-        return res.status(400).json({ message: "Please pass in a propertyId" });
-    }
-
-    console.log(propertyId);
-
-    //Checks property id with existing bookings database, and returns all bookings (in an array).
-    fs.readFile("./data/bookingdata.json", function (err, data) {
-        if (err) {
-            throw err;
-        } else {
-
-            //Checks ID against database
-            if (data.length > 0) {
-                var parseData = JSON.parse(data);
-                foundBooking = null;
-                parseData.bookings.forEach(existingBooking => {
-                    if (existingBooking.propertyId == propertyId) {
-                        foundBooking = true;
-                        allbookings.push(existingBooking);
-                    }
-                });
-
-                // //Returns all bookings if found, otherwise returns error.
-                if (foundBooking) {
-                    return res.json({ allbookings });
-                } else {
-                    return res.status(400).json({ message: "There are no booking requests under this property Id" });
-                }
-
+            if (err.code === 'ER_DUP_ENTRY') {
+                //Status code 400 means client error (bad request)
+                return res.status(400).json({ message: err.sqlMessage });
+            } else {
+                //Status code 500 means internal server error (client can't do anything).
+                return res.status(500).json({ message: "Failed to insert. Please try again" });
             }
         }
+
+        //Now this works.
+        console.log(result.insertId);
+
+        //Creates an anonymous property object to return to the client
+        var responseBooking = {
+            //insertId is provided by the database when it returns result
+            id: result.insertId,
+            datefrom: booking.datefrom,
+            dateto: booking.dateto,
+            userid: booking.userid,
+            propertyid: booking.propertyid,
+            ownerid: booking.ownerid
+        };
+
+
+        //Returns the newly created booking to the client
+        return res.status(200).json(responseBooking);
     });
 });
-
-
-// //Old code, but it was supposed to return the array of users
-// router.get("/", (req, res) => {
-//     res.send(users);
-// });
 
 module.exports = router;
