@@ -110,7 +110,7 @@ router.get("/:id", (req, res) => {
             return res.status(500).json({ message: "Failed to select" });
         }
         if (result.length === 0) {
-            return res.status(404).json({ messaage: "No property found for ID" });
+            return res.status(404).json({ message: "No property found for ID" });
         }
 
         const propertyResponse = {
@@ -154,7 +154,7 @@ router.get("/owner/:id", (req, res) => {
             return res.status(500).json({ message: "Failed to select" });
         }
         if (result.length === 0) {
-            return res.status(404).json({ messaage: "No properties found for this owner" });
+            return res.status(404).json({ message: "No properties found for this owner" });
         }
 
         //This returns an ARRAY. MAKE SURE YOUR PROVIDER APP AND CONSUMER APPS KNOW HOW TO DEAL WITH THESE ARRAYS WHEN
@@ -174,7 +174,7 @@ router.get("/", (req, res) => {
             return res.status(500).json({ message: "Failed to select" });
         }
         if (result.length === 0) {
-            return res.status(404).json({ messaage: "No properties found" });
+            return res.status(404).json({ message: "No properties found" });
         }
 
         //This returns an ARRAY. MAKE SURE YOUR PROVIDER APP AND CONSUMER APPS KNOW HOW TO DEAL WITH THESE ARRAYS WHEN
@@ -185,7 +185,7 @@ router.get("/", (req, res) => {
 
 //************************************BOOKING REQUEST ENDPOINTS******************************************//
 
-//Registers a new booking request.
+//Creates a new booking request. This works
 router.post("/:id/bookings", (req, res) => {
     var booking = {
         datefrom: req.body.datefrom,
@@ -248,7 +248,8 @@ router.post("/:id/bookings", (req, res) => {
             dateto: booking.dateto,
             userid: booking.userid,
             propertyid: booking.propertyid,
-            ownerid: booking.ownerid
+            ownerid: booking.ownerid,
+            status: booking.status
         };
 
 
@@ -256,5 +257,32 @@ router.post("/:id/bookings", (req, res) => {
         return res.status(200).json(responseBooking);
     });
 });
+
+//Returns all booking requests for a given property, by PROPERTY ID
+router.get("/:id/bookings", (req, res) => {
+    const propertyId = req.params.id;
+    console.log(propertyId);
+
+    //Checks that the query parameter (property ID) is an integer
+    const numberPropertyId = parseInt(propertyId);
+    if (isNaN(numberPropertyId)) {
+        return res.status(400).json({ message: "I am expecting an integer" });
+    }
+
+    if (!propertyId) {
+        return res.status(400).json({ message: "Please pass in a propertyId" });
+    }
+
+    //Searches for booking requests
+    myBookingmodel.getBookingByPropertyId(propertyId, (err, result) => {
+        if (err) {
+            return res.status(500).json({ message: "Failed to select" });
+        }
+
+        //Returns the array of booking requests to the client
+        return res.status(200).json(result);
+    });
+});
+
 
 module.exports = router;
