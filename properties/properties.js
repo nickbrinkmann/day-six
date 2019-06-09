@@ -284,5 +284,25 @@ router.get("/:id/bookings", (req, res) => {
     });
 });
 
+//Returns ALL booking requests
+router.get("/bookings/all", (req, res) => {
+    connection.query("SELECT * FROM booking", function (
+        err,
+        result
+    ) {
+        if (err) {
+            console.log("error: ", err);
+            return res.status(500).json({ message: "Failed to select" });
+        }
+        if (result.length === 0) {
+            return res.status(404).json({ message: "No booking requests found" });
+        }
+
+        //This returns an ARRAY. MAKE SURE YOUR PROVIDER APP AND CONSUMER APPS KNOW HOW TO DEAL WITH THESE ARRAYS WHEN
+        //RENDERING THE CURRENT LISTINGS PAGE (PROVIDER)
+        return res.status(200).json(result);
+    });
+})
+
 
 module.exports = router;
