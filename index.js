@@ -33,9 +33,8 @@ const propertiesRouter = require("./properties/properties");
 app.use("/api/properties", propertiesRouter);
 
 //Dummy return, as far as I can see
-app.get("/", (req, res) => {
-    console.log(req.headers);
-    res.send("GET default page");
+app.get("/ping", (req, res) => {
+    res.send("Pong");
 });
 
 //Listen on port 3000
